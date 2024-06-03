@@ -26,7 +26,6 @@ that meets my metric needs. Here it is.
 TODO
 
 ## Known issues and doubts
-- When the console is suspended, regardless of the model, it crashes when it is turned on again.
 - According to the **PSPSDK** documentation, `sceKernelTotalFreeMemSize` returns a different value than `pspSdkTotalFreeUserMemSize`.
 
 ## Why missy?
