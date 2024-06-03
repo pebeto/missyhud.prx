@@ -19,16 +19,24 @@ void printMemoryUsage() {
 }
 
 void printPowerInfo() {
+    if (!scePowerIsBatteryExist()) {
+        blit_string(0, 1, "Power: No battery", 0xFFFFFF, 0x000000);
+        return;
+    }
+
+    u16 remainingCapacity = scePowerGetBatteryRemainCapacity();
+    u16 fullCapacity = scePowerGetBatteryFullCapacity();
+    u16 percentage = remainingCapacity * 100 / fullCapacity;
+
     if (scePowerIsBatteryCharging()) {
-        char percentMsgCharging[24];
-        sprintf(percentMsgCharging, "Power: %u%% (charging...)",
-            scePowerGetBatteryLifePercent());
+        char percentMsgCharging[28];
+        sprintf(percentMsgCharging, "Power: %u%% (charging...)", percentage);
         blit_string(0, 1, percentMsgCharging, 0xFFFFFF, 0x000000);
     }
     else {
-        char percentMsgMinutes[19];
-        sprintf(percentMsgMinutes, "Power: %u%% (%u mins)",
-            scePowerGetBatteryLifePercent(), scePowerGetBatteryLifeTime());
+        char percentMsgMinutes[27];
+        sprintf(percentMsgMinutes, "Power: %u%% (%u mins)", percentage,
+            (u16) scePowerGetBatteryLifeTime());
         blit_string(0, 1, percentMsgMinutes, 0xFFFFFF, 0x000000);
     }
 }
@@ -54,21 +62,21 @@ int main_thread(unsigned int args, void *argp) {
     }
 
     sceKernelExitDeleteThread(0);
-	return 0;
+    return 0;
 }
 
 int module_start(SceSize args, void *argp) {
     int thid = sceKernelCreateThread("missyhud_thread", main_thread, 0x18,
         0x10000, 0, NULL);
 
-	if(thid >= 0) {
-		sceKernelStartThread(thid, args, argp);
-	}
+    if(thid >= 0) {
+        sceKernelStartThread(thid, args, argp);
+    }
 
-	return 0;
+    return 0;
 }
 
 int module_stop(SceSize args, void *argp) {
     active = 0;
-	return 0;
+    return 0;
 }
