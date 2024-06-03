@@ -6,7 +6,7 @@
 
 #include "include/blit.h"
 
-PSP_MODULE_INFO("missyhud", PSP_MODULE_KERNEL, 0, 1);
+PSP_MODULE_INFO("missyhud", PSP_MODULE_KERNEL, 0, 2);
 
 static char active = 1;
 
