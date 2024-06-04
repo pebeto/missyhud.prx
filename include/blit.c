@@ -60,11 +60,11 @@ int pspDebugScreenPrintData(const char *buff, int size);
 /////////////////////////////////////////////////////////////////////////////
 int blit_string(int sx,int sy,const char *msg,int fg_col,int bg_col)
 {
-	int pwidth, pheight, bufferwidth, pixelformat, unk;
-	unsigned int* vram32;
+    int pwidth, pheight, bufferwidth, pixelformat, unk;
+    unsigned int* vram32;
     int size;
-   	sceDisplayGetMode(&unk, &pwidth, &pheight);
-   	sceDisplayGetFrameBuf((void*)&vram32, &bufferwidth, &pixelformat, &unk);
+    sceDisplayGetMode(&unk, &pwidth, &pheight);
+    sceDisplayGetFrameBuf((void*)&vram32, &bufferwidth, &pixelformat, unk);
 
     if((bufferwidth == 0) || (vram32 == 0))
         return 0;
@@ -82,43 +82,43 @@ int blit_string(int sx,int sy,const char *msg,int fg_col,int bg_col)
 }
 int blit_string_ctr(int sy,const char *msg,int fg_col,int bg_col)
 {
-	int sx = 480/2-strlen(msg);
-	return blit_string(sx,sy,msg,fg_col,bg_col);
+    int sx = 480/2-strlen(msg);
+    return blit_string(sx,sy,msg,fg_col,bg_col);
 }
 
 static u16 convert_8888_to_565(u32 color)
 {
-	int r, g, b;
+    int r, g, b;
 
-	b = (color >> 19) & 0x1F;
-	g = (color >> 10) & 0x3F;
-	r = (color >> 3) & 0x1F;
+    b = (color >> 19) & 0x1F;
+    g = (color >> 10) & 0x3F;
+    r = (color >> 3) & 0x1F;
 
-	return r | (g << 5) | (b << 11);
+    return r | (g << 5) | (b << 11);
 }
 
 static u16 convert_8888_to_5551(u32 color)
 {
-	int r, g, b, a;
+    int r, g, b, a;
 
-	a = (color >> 24) ? 0x8000 : 0;
-	b = (color >> 19) & 0x1F;
-	g = (color >> 11) & 0x1F;
-	r = (color >> 3) & 0x1F;
+    a = (color >> 24) ? 0x8000 : 0;
+    b = (color >> 19) & 0x1F;
+    g = (color >> 11) & 0x1F;
+    r = (color >> 3) & 0x1F;
 
-	return a | r | (g << 5) | (b << 10);
+    return a | r | (g << 5) | (b << 10);
 }
 
 static u16 convert_8888_to_4444(u32 color)
 {
-	int r, g, b, a;
+    int r, g, b, a;
 
-	a = (color >> 28) & 0xF; 
-	b = (color >> 20) & 0xF;
-	g = (color >> 12) & 0xF;
-	r = (color >> 4) & 0xF;
+    a = (color >> 28) & 0xF; 
+    b = (color >> 20) & 0xF;
+    g = (color >> 12) & 0xF;
+    r = (color >> 4) & 0xF;
 
-	return (a << 12) | r | (g << 4) | (b << 8);
+    return (a << 12) | r | (g << 4) | (b << 8);
 }
 
 void pspDebugScreenSetBackColor(u32 colour)
@@ -133,57 +133,57 @@ void pspDebugScreenSetTextColor(u32 colour)
 
 void pspDebugScreenSetColorMode(int mode)
 {
-	switch(mode)
-	{
-		case PSP_DISPLAY_PIXEL_FORMAT_565:
-		case PSP_DISPLAY_PIXEL_FORMAT_5551:
-		case PSP_DISPLAY_PIXEL_FORMAT_4444:
-		case PSP_DISPLAY_PIXEL_FORMAT_8888:
-			break;
-		default: mode = PSP_DISPLAY_PIXEL_FORMAT_8888;
-	};
+    switch(mode)
+    {
+        case PSP_DISPLAY_PIXEL_FORMAT_565:
+        case PSP_DISPLAY_PIXEL_FORMAT_5551:
+        case PSP_DISPLAY_PIXEL_FORMAT_4444:
+        case PSP_DISPLAY_PIXEL_FORMAT_8888:
+            break;
+        default: mode = PSP_DISPLAY_PIXEL_FORMAT_8888;
+    };
 
-	g_vram_mode = mode;
+    g_vram_mode = mode;
 }
 
 
 int pspDebugScreenGetX()
 {
-	return X;
+    return X;
 }
 
 int pspDebugScreenGetY()
 {
-	return Y;
+    return Y;
 }
 
 void pspDebugScreenSetXY(int x, int y)
 {
-	if( x<MX && x>=0 ) X=x;
-	if( y<MY && y>=0 ) Y=y;
+    if( x<MX && x>=0 ) X=x;
+    if( y<MY && y>=0 ) Y=y;
 }
 
 void pspDebugScreenSetOffset(int offset)
 {
-	g_vram_offset = offset;
+    g_vram_offset = offset;
 }
 
 void pspDebugScreenSetBase(u32* base)
 {
-	g_vram_base = base;
+    g_vram_base = base;
 }
 
 static void debug_put_char_32(int x, int y, u32 color, u32 bgc, u8 ch)
 {
-   int 	i,j, l;
-   u8	*font;
+   int  i,j, l;
+   u8   *font;
    u32  pixel;
    u32 *vram_ptr;
    u32 *vram;
 
    if(!init)
    {
-	   return;
+       return;
    }
 
    vram = g_vram_base;
@@ -195,29 +195,29 @@ static void debug_put_char_32(int x, int y, u32 color, u32 bgc, u8 ch)
    {
       vram_ptr  = vram;
       for (j=0; j < 8; j++)
-	{
+    {
           if ((*font & (128 >> j)))
               pixel = color;
           else
               pixel = bgc;
 
           *vram_ptr++ = pixel; 
-	}
+    }
       vram += PSP_LINE_SIZE;
    }
 }
 
 static void debug_put_char_16(int x, int y, u16 color, u16 bgc, u8 ch)
 {
-   int 	i,j, l;
-   u8	*font;
+   int  i,j, l;
+   u8   *font;
    u16  pixel;
    u16 *vram_ptr;
    u16 *vram;
 
    if(!init)
    {
-	   return;
+       return;
    }
 
    vram = g_vram_base;
@@ -229,42 +229,42 @@ static void debug_put_char_16(int x, int y, u16 color, u16 bgc, u8 ch)
    {
       vram_ptr  = vram;
       for (j=0; j < 8; j++)
-	{
+    {
           if ((*font & (128 >> j)))
               pixel = color;
           else
               pixel = bgc;
 
           *vram_ptr++ = pixel; 
-	}
+    }
       vram += PSP_LINE_SIZE;
    }
 }
 
 void pspDebugScreenPutChar( int x, int y, u32 color, u8 ch)
 {
-	if(g_vram_mode == PSP_DISPLAY_PIXEL_FORMAT_8888)
-	{
-		debug_put_char_32(x, y, color, bg_col, ch);
-	}
-	else
-	{
-		u16 c = 0;
-		u16 b = 0;
-		switch(g_vram_mode)
-		{
-			case PSP_DISPLAY_PIXEL_FORMAT_565: c = convert_8888_to_565(color);
-											   b = convert_8888_to_565(bg_col);
-											   break;
-			case PSP_DISPLAY_PIXEL_FORMAT_5551: c = convert_8888_to_5551(color);
-											   b = convert_8888_to_5551(bg_col);
-											   break;
-			case PSP_DISPLAY_PIXEL_FORMAT_4444: c = convert_8888_to_4444(color);
-											   b = convert_8888_to_4444(bg_col);
-											   break;
-		};
-		debug_put_char_16(x, y, c, b, ch);
-	}
+    if(g_vram_mode == PSP_DISPLAY_PIXEL_FORMAT_8888)
+    {
+        debug_put_char_32(x, y, color, bg_col, ch);
+    }
+    else
+    {
+        u16 c = 0;
+        u16 b = 0;
+        switch(g_vram_mode)
+        {
+            case PSP_DISPLAY_PIXEL_FORMAT_565: c = convert_8888_to_565(color);
+                                               b = convert_8888_to_565(bg_col);
+                                               break;
+            case PSP_DISPLAY_PIXEL_FORMAT_5551: c = convert_8888_to_5551(color);
+                                               b = convert_8888_to_5551(bg_col);
+                                               break;
+            case PSP_DISPLAY_PIXEL_FORMAT_4444: c = convert_8888_to_4444(color);
+                                               b = convert_8888_to_4444(bg_col);
+                                               break;
+        };
+        debug_put_char_16(x, y, c, b, ch);
+    }
 }
 
 
@@ -278,46 +278,46 @@ void  _pspDebugScreenClearLine( int Y)
 /* Print non-nul terminated strings */
 int pspDebugScreenPrintData(const char *buff, int size)
 {
-	int i;
-	int j;
-	char c;
+    int i;
+    int j;
+    char c;
 
-	if(!init)
-	{
-		return 0;
-	}
+    if(!init)
+    {
+        return 0;
+    }
 
-	for (i = 0; i < size; i++)
-	{
-		c = buff[i];
-		switch (c)
-		{
-			case '\n':
-						X = 0;
-						Y ++;
-						if (Y == MY)
-							Y = 0;
-						_pspDebugScreenClearLine(Y);
-						break;
-			case '\t':
-						for (j = 0; j < 5; j++) {
-							pspDebugScreenPutChar( X*7 , Y * 8, fg_col, ' ');
-							X++;
-						}
-						break;
-			default:
-						pspDebugScreenPutChar( X*7 , Y * 8, fg_col, c);
-						X++;
-						if (X == MX)
-						{
-							X = 0;
-							Y++;
-							if (Y == MY)
-								Y = 0;
-							_pspDebugScreenClearLine(Y);
-						}
-		}
-	}
+    for (i = 0; i < size; i++)
+    {
+        c = buff[i];
+        switch (c)
+        {
+            case '\n':
+                        X = 0;
+                        Y ++;
+                        if (Y == MY)
+                            Y = 0;
+                        _pspDebugScreenClearLine(Y);
+                        break;
+            case '\t':
+                        for (j = 0; j < 5; j++) {
+                            pspDebugScreenPutChar( X*7 , Y * 8, fg_col, ' ');
+                            X++;
+                        }
+                        break;
+            default:
+                        pspDebugScreenPutChar( X*7 , Y * 8, fg_col, c);
+                        X++;
+                        if (X == MX)
+                        {
+                            X = 0;
+                            Y++;
+                            if (Y == MY)
+                                Y = 0;
+                            _pspDebugScreenClearLine(Y);
+                        }
+        }
+    }
 
-	return i;
+    return i;
 }
