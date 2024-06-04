@@ -7,7 +7,7 @@
 #include "include/blit.h"
 #include "include/hook.h"
 
-PSP_MODULE_INFO("missyhud", PSP_MODULE_KERNEL, 0, 2);
+PSP_MODULE_INFO("missyhud", PSP_MODULE_KERNEL, 0, 3);
 
 int (*g_setframebuf)(int unk, void* topaddr, int bufferwidth, int pixelformat,
     int sync);

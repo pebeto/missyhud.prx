@@ -19,7 +19,7 @@ that meets my metric needs. Here it is.
 - [x] RAM usage indicator
 - [x] Power percentage indicator (with duration minutes and charging detection)
 - [x] CPU/BUS clock speeds indicator
-- [ ] FPS indicator
+- [x] FPS indicator
 - [ ] Key combination to turn on and off
 
 ## Installation
