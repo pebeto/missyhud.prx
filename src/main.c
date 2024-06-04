@@ -3,7 +3,6 @@
 #include <pspsysmem_kernel.h>
 #include <psppower.h>
 #include <stdio.h>
-#include <string.h>
 
 #include "include/blit.h"
 #include "include/hook.h"

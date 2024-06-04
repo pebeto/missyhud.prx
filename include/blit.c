@@ -19,9 +19,7 @@
 
 
 #include <pspdisplay.h>
-#include <psptypes.h>
 #include <pspkernel.h>
-#include <stdarg.h>
 #include <string.h>
 
 #define PSP_SCREEN_WIDTH 480
