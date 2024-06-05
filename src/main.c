@@ -3,6 +3,7 @@
 #include <pspdisplay_kernel.h>
 #include <pspsysmem_kernel.h>
 #include <psppower.h>
+#include <pspctrl.h>
 #include <stdio.h>
 
 #include "include/blit.h"
@@ -13,24 +14,27 @@ PSP_MODULE_INFO("missyhud", PSP_MODULE_KERNEL, 0, 3);
 int (*_sceDisplaySetFrameBufferInternal)(int pri, void* topaddr,
     int bufferwidth, int pixelformat, int sync);
 
-static char active = 1;
+static u8 show = 1;
+static u8 active = 1;
 
-SceUInt32 fps_last_clock = 0;
-int fps_counter = 0;
-int fps_last_counter = 0;
-int last_fps = -1;
+
+static u8 fps = 0;
+static u8 last_fps = 0;
+static u32 fps_counter = 0;
+static u32 fps_last_clock = 0;
+static u32 fps_last_counter = 0;
 
 int getFPS() {
     // Method extracted from PSP-HUD. Thanks to darko79.
-    int current_fps = last_fps;
+    u8 current_fps = last_fps;
     u32 clock_low = sceKernelGetSystemTimeLow();
 
     if((clock_low - fps_last_clock) >= 1000000) {
         if(fps_last_clock > 0 && fps_last_clock < clock_low) {
-            int el_clock = clock_low - fps_last_clock;
+            u32 el_clock = clock_low - fps_last_clock;
 
             if(el_clock > 0) {
-                current_fps = (int)((fps_counter - fps_last_counter) * 1000000 / el_clock);
+                current_fps = (u8)((fps_counter - fps_last_counter) * 1000000 / el_clock);
             }
         }
         fps_last_clock = clock_low;
@@ -40,10 +44,8 @@ int getFPS() {
     return current_fps;
 }
 
-int fps = 0;
-
 void printFps() {
-    char msg[16];
+    char msg[9];
     fps = getFPS();
     sprintf(msg, "FPS: %u", fps);
     blit_string(0, 3, msg, 0xFFFFFF, 0x000000);
@@ -65,7 +67,7 @@ void printPowerInfo() {
     else {
         u16 remainingCapacity = scePowerGetBatteryRemainCapacity();
         u16 fullCapacity = scePowerGetBatteryFullCapacity();
-        u16 percentage = remainingCapacity * 100 / fullCapacity;
+        u8 percentage = remainingCapacity * 100 / fullCapacity;
 
         if (scePowerIsBatteryCharging()) {
             char percentMsgCharging[28];
@@ -96,6 +98,30 @@ int sceDisplaySetFrameBufferInternalHook(int pri, void* topaddr,
         pixelformat, sync);
 }
 
+int ctrl_thread(unsigned int args, void *argp) {
+    sceKernelDelayThread(1000000);
+
+    SceCtrlData pad;
+    sceCtrlSetSamplingCycle(0);
+	sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
+
+    while(active) {
+        sceKernelDelayThread(1000000);
+        sceCtrlReadBufferPositive(&pad, 1);
+
+        if (pad.Buttons != 0) {
+            if (pad.Buttons & PSP_CTRL_LTRIGGER
+                && pad.Buttons & PSP_CTRL_RTRIGGER
+                && pad.Buttons & PSP_CTRL_START) {
+                show = !show;
+            }
+        }
+        sceDisplayWaitVblankStart();
+    }
+    sceKernelExitDeleteThread(0);
+    return 0;
+}
+
 int main_thread(unsigned int args, void *argp) {
     sceKernelDelayThread(1000000);
 
@@ -104,13 +130,14 @@ int main_thread(unsigned int args, void *argp) {
         &_sceDisplaySetFrameBufferInternal);
 
     while(active) {
-        sceKernelDelayThreadCB(1000/5);
+        sceKernelDelayThreadCB(200);
 
-        printMemoryUsage();
-        printPowerInfo();
-        printCpuBusFrequencies();
-        printFps();
-
+        if (show) {
+            printMemoryUsage();
+            printPowerInfo();
+            printCpuBusFrequencies();
+            printFps();
+        }
         sceDisplayWaitVblankStart();
     }
 
@@ -119,9 +146,14 @@ int main_thread(unsigned int args, void *argp) {
 }
 
 int module_start(SceSize args, void *argp) {
-    int thid = sceKernelCreateThread("missyhud_thread", main_thread, 0x18,
+    int ctrl_thid = sceKernelCreateThread("missyhud_ctrl_thread", ctrl_thread,
+        0x18, 0x10000, 0, NULL);
+    int thid = sceKernelCreateThread("missyhud_main_thread", main_thread, 0x18,
         0x10000, 0, NULL);
 
+    if (ctrl_thid >= 0) {
+        sceKernelStartThread(ctrl_thid, args, argp);
+    }
     if(thid >= 0) {
         sceKernelStartThread(thid, args, argp);
     }
