@@ -22,7 +22,10 @@ that meets my metric needs. Here it is.
     - [x] Duration minutes
     - [x] Charging detection
     - [x] No battery detection
-- [x] CPU/BUS clock speeds indicator
+- [x] CPU indicators
+    - [x] CPU Usage
+    - [x] CPU clock speed
+    - [x] BUS clock speed
 - [x] FPS indicator
     - [ ] Support for double buffering games (i.e. GTA: LCS)
     - [ ] Support for POPS (PSX eboots)
