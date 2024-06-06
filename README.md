@@ -47,7 +47,7 @@ that meets my metric needs. Here it is.
         vsh, ef0:/seplugins/missyhud.prx, on
         pops, ef0:/seplugins/missyhud.prx, on
         ```
-	- `game.txt`, `pops.txt` and/or `pops.txt` in Non-ARK systems
+	- `game.txt`, `vsh.txt` and/or `pops.txt` in Non-ARK systems
 		- PSP 1000, 2000, 3000 and Street
         ```
         ms0:/seplugins/missyhud.prx 1
