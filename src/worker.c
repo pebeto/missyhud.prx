@@ -5,36 +5,37 @@
 
 #include "globals.h"
 
+#define PSP_1G_RAM 32
+#define NOT_PSP_1G_RAM 64
+
 static u8 last_fps = 0;
-static u32 fps_last_clock = 0;
+static u32 fps_last_time = 0;
 static u32 fps_last_counter = 0;
 
 u8 getFPS() {
-    // Method extracted from PSP-HUD. Thanks to darko79.
-    u8 current_fps = last_fps;
-    u32 clock_low = sceKernelGetSystemTimeLow();
+    // Method based on the one written by darko79 for PSP-HUD (Thank  you).
+    u32 current_time = sceKernelGetSystemTimeLow();
 
-    if ((clock_low - fps_last_clock) >= 1000000) {
-        if (fps_last_clock > 0 && fps_last_clock < clock_low) {
-            u32 el_clock = clock_low - fps_last_clock;
+    if ((current_time - fps_last_time) >= ONE_SECOND) {
+        if (fps_last_time > 0 && fps_last_time < current_time) {
+            u32 elapsed_time = current_time - fps_last_time;
 
-            if (el_clock > 0) {
-                current_fps = (u8)((globals.fps_counter - fps_last_counter) * 1000000 / el_clock);
+            if (elapsed_time > 0) {
+                last_fps = (u8)((globals.fps_counter - fps_last_counter) * ONE_SECOND / elapsed_time);
             }
         }
-        fps_last_clock = clock_low;
+        fps_last_time = current_time;
         fps_last_counter = globals.fps_counter;
     }
-    last_fps = current_fps;
-    return current_fps;
+    return last_fps;
 }
 
 int workerThread(unsigned int args, void *argp) {
-    sceKernelDelayThread(500000);
+    sceKernelDelayThread(ONE_SECOND/2);
 
     globals.fps = 0;
     globals.fps_counter = 0;
-    globals.totalMemory = sceKernelGetModel() == 0 ? 32 : 64;
+    globals.totalMemory = sceKernelGetModel() == 0 ? PSP_1G_RAM : NOT_PSP_1G_RAM;
 
     while (globals.active) {
         sceKernelDelayThreadCB(200);

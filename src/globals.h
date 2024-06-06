@@ -1,6 +1,8 @@
 #ifndef GLOBALS_H
 #define GLOBALS_H
 
+#define ONE_SECOND 1000000
+
 #include <psptypes.h>
 
 struct Globals {

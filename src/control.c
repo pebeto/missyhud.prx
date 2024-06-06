@@ -5,14 +5,14 @@
 #include "globals.h"
 
 int controlThread(unsigned int args, void *argp) {
-    sceKernelDelayThread(1000000);
+    sceKernelDelayThread(ONE_SECOND);
 
     SceCtrlData pad;
     sceCtrlSetSamplingCycle(0);
 	sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
 
     while (globals.active) {
-        sceKernelDelayThread(1000000);
+        sceKernelDelayThread(ONE_SECOND);
         sceCtrlReadBufferPositive(&pad, 1);
 
         if (pad.Buttons != 0) {
