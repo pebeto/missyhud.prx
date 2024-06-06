@@ -9,7 +9,7 @@ static u8 last_fps = 0;
 static u32 fps_last_clock = 0;
 static u32 fps_last_counter = 0;
 
-int getFPS() {
+u8 getFPS() {
     // Method extracted from PSP-HUD. Thanks to darko79.
     u8 current_fps = last_fps;
     u32 clock_low = sceKernelGetSystemTimeLow();
@@ -19,11 +19,11 @@ int getFPS() {
             u32 el_clock = clock_low - fps_last_clock;
 
             if (el_clock > 0) {
-                current_fps = (u8)((fps_counter - fps_last_counter) * 1000000 / el_clock);
+                current_fps = (u8)((globals.fps_counter - fps_last_counter) * 1000000 / el_clock);
             }
         }
         fps_last_clock = clock_low;
-        fps_last_counter = fps_counter;
+        fps_last_counter = globals.fps_counter;
     }
     last_fps = current_fps;
     return current_fps;
@@ -32,19 +32,22 @@ int getFPS() {
 int workerThread(unsigned int args, void *argp) {
     sceKernelDelayThread(500000);
 
-    while (active) {
+    globals.fps = 0;
+    globals.fps_counter = 0;
+    globals.totalMemory = sceKernelGetModel() == 0 ? 32 : 64;
+
+    while (globals.active) {
         sceKernelDelayThreadCB(200);
 
-        if (show) {
-            totalMemory = sceKernelGetModel() == 0 ? 32 : 64;
-            usedMemory = totalMemory - (u8)(sceKernelTotalFreeMemSize() >> 20);
-            isBatteryExist = scePowerIsBatteryExist();
-            isBatteryCharging = scePowerIsBatteryCharging() || scePowerIsPowerOnline();
-            batteryLifePercent = scePowerGetBatteryRemainCapacity() * 100 / scePowerGetBatteryFullCapacity();
-            batteryLifeTime = scePowerGetBatteryLifeTime();
-            cpuClockFrequency = scePowerGetCpuClockFrequency();
-            busClockFrequency = scePowerGetBusClockFrequency();
-            fps = getFPS();
+        if (globals.show) {
+           globals.usedMemory = globals.totalMemory - (u8)(sceKernelTotalFreeMemSize() >> 20);
+           globals.isBatteryExist = scePowerIsBatteryExist();
+           globals.isBatteryCharging = scePowerIsBatteryCharging() || scePowerIsPowerOnline();
+           globals.batteryLifePercent = scePowerGetBatteryRemainCapacity() * 100 / scePowerGetBatteryFullCapacity();
+           globals.batteryLifeTime = scePowerGetBatteryLifeTime();
+           globals.cpuClockFrequency = scePowerGetCpuClockFrequency();
+           globals.busClockFrequency = scePowerGetBusClockFrequency();
+           globals.fps = getFPS();
         }
         sceDisplayWaitVblankStart();
     }

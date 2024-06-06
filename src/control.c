@@ -11,7 +11,7 @@ int controlThread(unsigned int args, void *argp) {
     sceCtrlSetSamplingCycle(0);
 	sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
 
-    while (active) {
+    while (globals.active) {
         sceKernelDelayThread(1000000);
         sceCtrlReadBufferPositive(&pad, 1);
 
@@ -19,7 +19,7 @@ int controlThread(unsigned int args, void *argp) {
             if (pad.Buttons & PSP_CTRL_LTRIGGER
                 && pad.Buttons & PSP_CTRL_RTRIGGER
                 && pad.Buttons & PSP_CTRL_START) {
-                show = !show;
+                globals.show = !(globals.show);
             }
         }
         sceDisplayWaitVblankStart();
