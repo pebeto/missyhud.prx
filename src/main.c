@@ -8,7 +8,15 @@
 #include "control.h"
 #include "globals.h"
 
-PSP_MODULE_INFO("missyhud", PSP_MODULE_KERNEL, 0, 4);
+#ifndef MAJOR_VERSION
+#define MAJOR_VERSION 0
+#endif
+
+#ifndef MINOR_VERSION
+#define MINOR_VERSION 0
+#endif
+
+PSP_MODULE_INFO("missyhud", PSP_MODULE_KERNEL, MAJOR_VERSION, MINOR_VERSION);
 
 struct Globals globals;
 
