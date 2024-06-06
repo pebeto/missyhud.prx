@@ -1,5 +1,5 @@
 TARGET = missyhud
-OBJS = src/main.o include/blit.o include/hook.o
+OBJS = src/main.o src/control.o src/worker.o src/gui.o include/blit.o include/hook.o
 
 BUILD_PRX = 1
 USE_KERNEL_LIBC = 1
