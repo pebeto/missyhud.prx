@@ -8,7 +8,7 @@
 #include "control.h"
 #include "globals.h"
 
-PSP_MODULE_INFO("missyhud", PSP_MODULE_KERNEL, 0, 3);
+PSP_MODULE_INFO("missyhud", PSP_MODULE_KERNEL, 0, 4);
 
 u8 fps = 0;
 u8 show = 1;
