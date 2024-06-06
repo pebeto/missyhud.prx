@@ -74,7 +74,7 @@ void executeGuiThread(SceSize args, void *argp) {
     int thid = sceKernelCreateThread("missyhud_gui_thread", guiThread, 0x18,
         0x10000, 0, NULL);
 
-    if(thid >= 0) {
+    if (thid >= 0) {
         sceKernelStartThread(thid, args, argp);
     }
 }
