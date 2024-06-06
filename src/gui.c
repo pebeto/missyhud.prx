@@ -9,26 +9,26 @@
 
 void printMemoryUsage() {
     char msg[16];
-    sprintf(msg, "RAM: %u/%u MB", usedMemory, totalMemory);
+    sprintf(msg, "RAM: %u/%u MB", globals.usedMemory, globals.totalMemory);
     blit_string(0, 0, msg, 0xFFFFFF, 0x000000);
 }
 
 void printPowerInfo() {
-    if (!isBatteryExist) {
+    if (!(globals.isBatteryExist)) {
         blit_string(0, 1, "Power: No battery", 0xFFFFFF, 0x000000);
         return;
     }
     else {
-        if (isBatteryCharging) {
+        if (globals.isBatteryCharging) {
             char percentMsgCharging[26];
             sprintf(percentMsgCharging, "Power: %u%% (charging...)",
-                batteryLifePercent);
+                globals.batteryLifePercent);
             blit_string(0, 1, percentMsgCharging, 0xFFFFFF, 0x000000);
         }
         else {
             char percentMsgMinutes[25];
             sprintf(percentMsgMinutes, "Power: %u%% (%u mins)",
-                batteryLifePercent, batteryLifeTime);
+                globals.batteryLifePercent, globals.batteryLifeTime);
             blit_string(0, 1, percentMsgMinutes, 0xFFFFFF, 0x000000);
         }
     }
@@ -36,23 +36,26 @@ void printPowerInfo() {
 
 void printCpuBusFrequencies() {
     char msg[35];
-    sprintf(msg, "CPU/BUS: %lu/%lu MHz", cpuClockFrequency, busClockFrequency);
+    sprintf(msg, "CPU/BUS: %lu/%lu MHz", globals.cpuClockFrequency,
+        globals.busClockFrequency);
     blit_string(0, 2, msg, 0xFFFFFF, 0x000000);
 }
 
 void printFps() {
     char msg[9];
-    sprintf(msg, "FPS: %u", fps);
+    sprintf(msg, "FPS: %u", globals.fps);
     blit_string(0, 3, msg, 0xFFFFFF, 0x000000);
 }
 
 int guiThread(unsigned int args, void *argp) {
     sceKernelDelayThread(1000000);
 
-    while (active) {
+    globals.show = 1;
+
+    while (globals.active) {
         sceKernelDelayThreadCB(200);
 
-        if (show) {
+        if (globals.show) {
             printMemoryUsage();
             printPowerInfo();
             printCpuBusFrequencies();

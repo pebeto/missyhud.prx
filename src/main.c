@@ -10,26 +10,14 @@
 
 PSP_MODULE_INFO("missyhud", PSP_MODULE_KERNEL, 0, 4);
 
-u8 fps = 0;
-u8 show = 1;
-u8 active = 1;
-u8 usedMemory;
-u8 totalMemory;
-u8 isBatteryExist;
-u16 batteryLifeTime;
-u32 fps_counter = 0;
-u8 isBatteryCharging;
-u8 batteryLifePercent;
-u32 busClockFrequency;
-u32 cpuClockFrequency;
-
+struct Globals globals;
 
 int (*_sceDisplaySetFrameBufferInternal)(int pri, void* topaddr,
     int bufferwidth, int pixelformat, int sync);
 
 int sceDisplaySetFrameBufferInternalHook(int pri, void* topaddr,
     int bufferwidth, int pixelformat, int sync) {
-    fps_counter++;
+    globals.fps_counter++;
     return _sceDisplaySetFrameBufferInternal(pri, topaddr, bufferwidth,
         pixelformat, sync);
 }
@@ -39,6 +27,8 @@ int module_start(SceSize args, void *argp) {
         sceDisplaySetFrameBufferInternalHook,
         &_sceDisplaySetFrameBufferInternal);
 
+    globals.active = 1;
+
     executeControlThread(args, argp);
     executeWorkerThread(args, argp);
     executeGuiThread(args, argp);
@@ -47,6 +37,6 @@ int module_start(SceSize args, void *argp) {
 }
 
 int module_stop(SceSize args, void *argp) {
-    active = 0;
+    globals.active = 0;
     return 0;
 }
