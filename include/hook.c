@@ -6,7 +6,7 @@
 * Credits to Alexander "Raphael" Berl.
 *
 */
-#include <pspsdk.h>
+#include <psptypes.h>
 
 #define GET_JUMP_TARGET(x) (0x80000000 | (((x) & 0x03FFFFFF) << 2))
 

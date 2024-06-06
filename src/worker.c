@@ -8,47 +8,73 @@
 #define PSP_1G_RAM 32
 #define NOT_PSP_1G_RAM 64
 
-static u8 last_fps = 0;
-static u32 fps_last_time = 0;
-static u32 fps_last_counter = 0;
+static u8 lastCpuUsage = 0;
+static u32 cpuLastTime = 0;
+static u32 cpuLastIdleTime = 0;
 
-u8 getFPS() {
-    // Method based on the one written by darko79 for PSP-HUD (Thank  you).
-    u32 current_time = sceKernelGetSystemTimeLow();
+u8 getCpuUsage(u32 current_time) {
+    // Method based on the one written by darko79 for PSP-HUD (Thank you).
+    SceKernelSystemStatus status;
+    status.size = sizeof(SceKernelSystemStatus);
+    sceKernelReferSystemStatus(&status);
 
-    if ((current_time - fps_last_time) >= ONE_SECOND) {
-        if (fps_last_time > 0 && fps_last_time < current_time) {
-            u32 elapsed_time = current_time - fps_last_time;
+    if((current_time - cpuLastTime) >= ONE_SECOND) {
+        if(cpuLastTime > 0 && cpuLastIdleTime > 0 && cpuLastTime < current_time && cpuLastIdleTime < status.idleClocks.low) {
+            u32 elapsed_time = current_time - cpuLastTime;
+            u32 elapsed_idle_time = status.idleClocks.low - cpuLastIdleTime;
 
-            if (elapsed_time > 0) {
-                last_fps = (u8)((globals.fps_counter - fps_last_counter) * ONE_SECOND / elapsed_time);
+            if(elapsed_time > 0) {
+                lastCpuUsage = (u8)(100 - ((float)elapsed_idle_time / (float)elapsed_time) * 100);
             }
         }
-        fps_last_time = current_time;
-        fps_last_counter = globals.fps_counter;
+        cpuLastTime = current_time;
+        cpuLastIdleTime = status.idleClocks.low;
     }
-    return last_fps;
+    return lastCpuUsage > 100 ? 100 : lastCpuUsage;
+}
+
+static u8 lastFps = 0;
+static u32 fpsLastTime = 0;
+static u32 fpsLastCounter = 0;
+
+u8 getFPS(u32 current_time) {
+    // Method based on the one written by darko79 for PSP-HUD (Thank you).
+    if ((current_time - fpsLastTime) >= ONE_SECOND) {
+        if (fpsLastTime > 0 && fpsLastTime < current_time) {
+            u32 elapsed_time = current_time - fpsLastTime;
+
+            if (elapsed_time > 0) {
+                lastFps = (u8)((globals.fpsCounter - fpsLastCounter) * ONE_SECOND / elapsed_time);
+            }
+        }
+        fpsLastTime = current_time;
+        fpsLastCounter = globals.fpsCounter;
+    }
+    return lastFps;
 }
 
 int workerThread(unsigned int args, void *argp) {
     sceKernelDelayThread(ONE_SECOND/2);
 
     globals.fps = 0;
-    globals.fps_counter = 0;
+    globals.fpsCounter = 0;
     globals.totalMemory = sceKernelGetModel() == 0 ? PSP_1G_RAM : NOT_PSP_1G_RAM;
 
     while (globals.active) {
         sceKernelDelayThreadCB(200);
 
         if (globals.show) {
-           globals.usedMemory = globals.totalMemory - (u8)(sceKernelTotalFreeMemSize() >> 20);
-           globals.isBatteryExist = scePowerIsBatteryExist();
-           globals.isBatteryCharging = scePowerIsBatteryCharging() || scePowerIsPowerOnline();
-           globals.batteryLifePercent = scePowerGetBatteryRemainCapacity() * 100 / scePowerGetBatteryFullCapacity();
-           globals.batteryLifeTime = scePowerGetBatteryLifeTime();
-           globals.cpuClockFrequency = scePowerGetCpuClockFrequency();
-           globals.busClockFrequency = scePowerGetBusClockFrequency();
-           globals.fps = getFPS();
+            globals.usedMemory = globals.totalMemory - (u8)(sceKernelTotalFreeMemSize() >> 20);
+            globals.isBatteryExist = scePowerIsBatteryExist();
+            globals.isBatteryCharging = scePowerIsBatteryCharging() || scePowerIsPowerOnline();
+            globals.batteryLifePercent = scePowerGetBatteryRemainCapacity() * 100 / scePowerGetBatteryFullCapacity();
+            globals.batteryLifeTime = scePowerGetBatteryLifeTime();
+            globals.cpuClockFrequency = scePowerGetCpuClockFrequency();
+            globals.busClockFrequency = scePowerGetBusClockFrequency();
+
+            u32 currentTime = sceKernelGetSystemTimeLow();
+            globals.fps = getFPS(currentTime);
+            globals.cpuUsage = getCpuUsage(currentTime);
         }
         sceDisplayWaitVblankStart();
     }
@@ -57,10 +83,10 @@ int workerThread(unsigned int args, void *argp) {
 }
 
 void executeWorkerThread(SceSize args, void *argp) {
-    int worker_thid = sceKernelCreateThread("missyhud_worker_thread",
+    int thid = sceKernelCreateThread("missyhud_worker_thread",
         workerThread, 0x18, 0x10000, 0, NULL);
 
-    if (worker_thid >= 0) {
-        sceKernelStartThread(worker_thid, args, argp);
+    if (thid >= 0) {
+        sceKernelStartThread(thid, args, argp);
     }
 }

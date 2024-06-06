@@ -16,11 +16,9 @@
  * other than that, all of the functions in here except blit_string come
  * from that file unchanged
  */
-
-
-#include <pspdisplay.h>
-#include <pspkernel.h>
 #include <string.h>
+#include <psptypes.h>
+#include <pspdisplay.h>
 
 #define PSP_SCREEN_WIDTH 480
 #define PSP_SCREEN_HEIGHT 272

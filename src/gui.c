@@ -10,13 +10,14 @@
 #define BG_COLOR 0x000000
 #define FG_COLOR 0xFFFFFF
 
-void printMemoryUsage() {
-    char msg[16];
-    sprintf(msg, "RAM: %u/%u MB", globals.usedMemory, globals.totalMemory);
+void printCpuIndicators() {
+    char msg[38];
+    sprintf(msg, "CPU: %u%% (%lu/%lu MHz)", globals.cpuUsage,
+        globals.cpuClockFrequency, globals.busClockFrequency);
     blit_string(0, 0, msg, FG_COLOR, BG_COLOR);
 }
 
-void printPowerInfo() {
+void printPowerIndicators() {
     if (!(globals.isBatteryExist)) {
         blit_string(0, 1, "Power: No battery", FG_COLOR, BG_COLOR);
         return;
@@ -37,10 +38,9 @@ void printPowerInfo() {
     }
 }
 
-void printCpuBusFrequencies() {
-    char msg[35];
-    sprintf(msg, "CPU/BUS: %lu/%lu MHz", globals.cpuClockFrequency,
-        globals.busClockFrequency);
+void printMemoryUsage() {
+    char msg[16];
+    sprintf(msg, "RAM: %u/%u MB", globals.usedMemory, globals.totalMemory);
     blit_string(0, 2, msg, FG_COLOR, BG_COLOR);
 }
 
@@ -59,9 +59,9 @@ int guiThread(unsigned int args, void *argp) {
         sceKernelDelayThreadCB(200);
 
         if (globals.show) {
+            printCpuIndicators();
+            printPowerIndicators();
             printMemoryUsage();
-            printPowerInfo();
-            printCpuBusFrequencies();
             printFps();
         }
         sceDisplayWaitVblankStart();
