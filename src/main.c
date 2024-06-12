@@ -31,9 +31,9 @@ int sceDisplaySetFrameBufferInternalHook(int pri, void* topaddr,
 }
 
 int module_start(SceSize args, void *argp) {
-    hook_function((unsigned int*) sceDisplaySetFrameBufferInternal,
+    hook_function((unsigned int*)sceDisplaySetFrameBufferInternal,
         sceDisplaySetFrameBufferInternalHook,
-        &_sceDisplaySetFrameBufferInternal);
+        (unsigned int*)&_sceDisplaySetFrameBufferInternal);
 
     globals.active = 1;
 

@@ -3,10 +3,8 @@
 #include <pspthreadman.h>
 #include <pspsysmem_kernel.h>
 
+#include "worker.h"
 #include "globals.h"
-
-#define FAT_RAM 32
-#define SLIM_RAM 64
 
 static u8 lastCpuUsage = 0;
 static u32 cpuLastIdleTime = 0;
@@ -83,7 +81,7 @@ int workerThread(unsigned int args, void *argp) {
 
 void executeWorkerThread(SceSize args, void *argp) {
     int thid = sceKernelCreateThread("missyhud_worker_thread",
-        workerThread, 0x18, 0x10000, 0, NULL);
+        workerThread, 0x10, 0x200, 0, NULL);
 
     if (thid >= 0) {
         sceKernelStartThread(thid, args, argp);

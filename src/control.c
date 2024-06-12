@@ -30,7 +30,7 @@ int controlThread(unsigned int args, void *argp) {
 
 void executeControlThread(SceSize args, void *argp) {
     int thid = sceKernelCreateThread("missyhud_control_thread",
-        controlThread, 0x18, 0x10000, 0, NULL);
+        controlThread, 0x10, 0x200, 0, NULL);
 
     if (thid >= 0) {
         sceKernelStartThread(thid, args, argp);

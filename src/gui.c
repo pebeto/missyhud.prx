@@ -5,10 +5,8 @@
 
 #include "include/blit.h"
 
+#include "gui.h"
 #include "globals.h"
-
-#define BG_COLOR 0x000000
-#define FG_COLOR 0xFFFFFF
 
 void printCpuIndicators() {
     char msg[38];
@@ -71,8 +69,8 @@ int guiThread(unsigned int args, void *argp) {
 }
 
 void executeGuiThread(SceSize args, void *argp) {
-    int thid = sceKernelCreateThread("missyhud_gui_thread", guiThread, 0x18,
-        0x10000, 0, NULL);
+    int thid = sceKernelCreateThread("missyhud_gui_thread", guiThread, 0x10,
+        0x200, 0, NULL);
 
     if (thid >= 0) {
         sceKernelStartThread(thid, args, argp);
