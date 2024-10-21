@@ -5,12 +5,26 @@
 
 #include <psptypes.h>
 
+enum GuiPosition {
+    TOP_LEFT,
+    MID_TOP,
+    TOP_RIGHT,
+    MID_LEFT,
+    CENTER,
+    MID_RIGHT,
+    BOTTOM_LEFT,
+    MID_BOTTOM,
+    BOTTOM_RIGHT
+};
+extern enum GuiPosition guiPosition;
+
 struct Globals {
     u8 fps;
     u8 show;
     u8 active;
     u8 cpuUsage;
     u8 usedMemory;
+    u8 guiPosition;
     u8 totalMemory;
     u32 fpsCounter;
     u8 isBatteryExist;
@@ -20,7 +34,6 @@ struct Globals {
     u32 busClockFrequency;
     u32 cpuClockFrequency;
 };
-
 extern struct Globals globals;
 
 #endif

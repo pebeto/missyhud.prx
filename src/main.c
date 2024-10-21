@@ -1,7 +1,4 @@
 #include <pspmoduleinfo.h>
-#include <pspdisplay_kernel.h>
-
-#include "include/hook.h"
 
 #include "gui.h"
 #include "worker.h"
@@ -20,24 +17,10 @@ PSP_MODULE_INFO("missyhud", PSP_MODULE_KERNEL, MAJOR_VERSION, MINOR_VERSION);
 
 struct Globals globals;
 
-int (*_sceDisplaySetFrameBufferInternal)(int pri, void* topaddr,
-    int bufferwidth, int pixelformat, int sync);
-
-int sceDisplaySetFrameBufferInternalHook(int pri, void* topaddr,
-    int bufferwidth, int pixelformat, int sync) {
-    globals.fpsCounter++;
-    return _sceDisplaySetFrameBufferInternal(pri, topaddr, bufferwidth,
-        pixelformat, sync);
-}
-
 int module_start(SceSize args, void *argp) {
-    hook_function((unsigned int*)sceDisplaySetFrameBufferInternal,
-        sceDisplaySetFrameBufferInternalHook,
-        (unsigned int*)&_sceDisplaySetFrameBufferInternal);
-
     globals.active = 1;
 
-    executeControlThread(args, argp);
+    executeControlThreads(args, argp);
     executeWorkerThread(args, argp);
     executeGuiThread(args, argp);
 
