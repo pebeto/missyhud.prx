@@ -14,6 +14,7 @@ that meets my metric needs. Here it is.
 > Unmarked are W.I.P features.
 
 - [x] Stupidly simple black UI (yes, the best one)
+    - [x] Cycle position (START + Analog left/right)
     - [ ] UI customization
     - [ ] Color customization
 - [x] Compatible with VSH, GAME and POPS
