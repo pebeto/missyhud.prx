@@ -3,6 +3,7 @@
 #include <pspthreadman.h>
 #include <pspsysmem_kernel.h>
 
+#include "utils.h"
 #include "worker.h"
 #include "globals.h"
 
@@ -60,7 +61,14 @@ int workerThread(unsigned int args, void *argp) {
             globals.usedMemory = globals.totalMemory - (u8)(sceKernelTotalFreeMemSize() >> 20);
             globals.isBatteryExist = scePowerIsBatteryExist();
             globals.isBatteryCharging = scePowerIsBatteryCharging() || scePowerIsPowerOnline();
-            globals.batteryLifePercent = scePowerGetBatteryRemainCapacity() * 100 / scePowerGetBatteryFullCapacity();
+
+            if (isPSPGo()){
+                globals.batteryLifePercent = scePowerGetBatteryLifePercent();
+            }
+            else {
+                globals.batteryLifePercent = scePowerGetBatteryRemainCapacity() * 100 / scePowerGetBatteryFullCapacity();
+            }
+
             globals.batteryLifeTime = scePowerGetBatteryLifeTime();
             globals.cpuClockFrequency = scePowerGetCpuClockFrequency();
             globals.busClockFrequency = scePowerGetBusClockFrequency();

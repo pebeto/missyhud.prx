@@ -3,11 +3,13 @@
 #include <pspdisplay.h>
 #include <pspthreadman.h>
 #include <pspdisplay_kernel.h>
+#include <string.h>
 
 #include "include/blit.h"
 #include "include/hook.h"
 
 #include "gui.h"
+#include "utils.h"
 #include "globals.h"
 
 int (*_sceDisplaySetFrameBufferInternal)(int pri, void* topaddr,
@@ -33,17 +35,34 @@ void printPowerIndicators(GuiComponent power) {
         return;
     }
     else {
+        char batteryLifePercentBuffer[18];
+
+        if (isPSPGo()) {
+            if (globals.batteryLifePercent >= 60) {
+                strcpy(batteryLifePercentBuffer, "High");
+            }
+            else if (globals.batteryLifePercent >= 30) {
+                strcpy(batteryLifePercentBuffer, "Medium");
+            }
+            else {
+                strcpy(batteryLifePercentBuffer, "Low");
+            }
+        }
+        else {
+            sprintf(batteryLifePercentBuffer, "%u%% (%u mins)",
+                globals.batteryLifePercent, globals.batteryLifeTime);
+        }
+
         if (globals.isBatteryCharging) {
-            char percentMsgCharging[26];
-            sprintf(percentMsgCharging, "Power: %u%% (charging...)",
-                globals.batteryLifePercent);
+            char percentMsgCharging[22];
+            sprintf(percentMsgCharging, "Power: %s (charging...)",
+                batteryLifePercentBuffer);
             blit_string(power.x, power.y, percentMsgCharging, FG_COLOR,
                 BG_COLOR);
         }
         else {
-            char percentMsgMinutes[25];
-            sprintf(percentMsgMinutes, "Power: %u%% (%u mins)",
-                globals.batteryLifePercent, globals.batteryLifeTime);
+            char percentMsgMinutes[8];
+            sprintf(percentMsgMinutes, "Power: %s", batteryLifePercentBuffer);
             blit_string(power.x, power.y, percentMsgMinutes, FG_COLOR,
                 BG_COLOR);
         }
