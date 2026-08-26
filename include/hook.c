@@ -28,11 +28,18 @@
  * documented, so the entry is saved and compared here instead of unpicking it. */
 #define ENTRY_WORDS 8
 
+/* pspsdk renamed FunctionPatchData to SctrlFunctionPatchData, so the layout is
+ * mirrored here and passed as void * to build against either name. */
+typedef struct {
+    unsigned int instructions[5];
+    unsigned int extra[3];
+} PatchData;
+
 static struct {
     u32 *entry;
     u32 original[ENTRY_WORDS];
     u32 patched[ENTRY_WORDS];
-    FunctionPatchData patch;
+    PatchData patch;
 } hooks[MAX_HOOKS];
 static int hook_count = 0;
 
@@ -84,7 +91,7 @@ int hook_function(void *stub, void *hook, void **original) {
     }
 
     snapshot(hooks[hook_count].original, entry);
-    sctrlHENHijackFunction(&hooks[hook_count].patch, entry, hook, original);
+    sctrlHENHijackFunction((void *)&hooks[hook_count].patch, entry, hook, original);
     snapshot(hooks[hook_count].patched, entry);
 
     hooks[hook_count].entry = entry;

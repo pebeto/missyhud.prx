@@ -8,7 +8,7 @@ BUILD_PRX = 1
 USE_KERNEL_LIBC = 1
 USE_KERNEL_LIBS = 1
 
-WARNINGS = -Wall -Wextra -Wformat-overflow=2 -Wformat-truncation=2 -Wstrict-prototypes
+WARNINGS = -Wall -Wextra -Wformat-overflow=2 -Wformat-truncation=2 -Wstrict-prototypes $(EXTRA_WARNINGS)
 
 CFLAGS = -O2 -G0 $(WARNINGS) -DMAJOR_VERSION=$(MISSYHUD_MAJOR_VERSION) -DMINOR_VERSION=$(MISSYHUD_MINOR_VERSION)
 CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti

@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev, master]
+
+jobs:
+  build:
+    name: Build the PRX
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Only make runs in the toolchain image, so every action around it stays
+      # on the runner. EXTRA_WARNINGS turns warnings into errors here but not on
+      # a release build, where a new toolchain revision should not block a tag.
+      - name: Build
+        run: |
+          docker run --rm -v "$PWD:/build" -w /build \
+            ghcr.io/pspdev/pspdev:latest \
+            make EXTRA_WARNINGS=-Werror
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: missyhud-${{ github.sha }}
+          path: missyhud.prx
+          if-no-files-found: error

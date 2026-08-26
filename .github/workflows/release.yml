@@ -1,0 +1,134 @@
+name: Release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Part of the version to increase
+        type: choice
+        options: [minor, major]
+        default: minor
+
+permissions:
+  contents: write
+
+# Two merges landing close together would otherwise race for the same tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag, build and publish
+    runs-on: ubuntu-latest
+    steps:
+      # Full history and tags: the version is derived from the newest tag.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Work out the next version
+        id: version
+        run: |
+          latest=$(git tag --list 'v[0-9]*.[0-9]*' | sort -V | tail -n 1)
+          latest=${latest:-v0.0}
+
+          major=${latest#v}
+          major=${major%%.*}
+          minor=${latest##*.}
+
+          # inputs.bump is empty on a push, so that path takes the minor bump.
+          case "${{ inputs.bump }}" in
+            major) major=$((major + 1)); minor=0 ;;
+            *)     minor=$((minor + 1)) ;;
+          esac
+
+          tag="v$major.$minor"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "::error::$tag already exists"
+            exit 1
+          fi
+
+          {
+            echo "major=$major"
+            echo "minor=$minor"
+            echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
+          echo "\`$latest\` -> \`$tag\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Set the version in the Makefile
+        run: |
+          sed -i \
+            -e 's/^MISSYHUD_MAJOR_VERSION := .*/MISSYHUD_MAJOR_VERSION := ${{ steps.version.outputs.major }}/' \
+            -e 's/^MISSYHUD_MINOR_VERSION := .*/MISSYHUD_MINOR_VERSION := ${{ steps.version.outputs.minor }}/' \
+            Makefile
+          grep -E '^MISSYHUD_(MAJOR|MINOR)_VERSION' Makefile
+
+      - name: Build
+        run: |
+          docker run --rm -v "$PWD:/build" -w /build \
+            ghcr.io/pspdev/pspdev:latest \
+            make
+          ls -l missyhud.prx
+
+      # The tag is pushed only once the PRX exists, so a failed build leaves no
+      # version behind. Pushes made with GITHUB_TOKEN do not start another run.
+      - name: Commit the bump and tag it
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- Makefile; then
+            echo "Makefile already at ${{ steps.version.outputs.tag }}"
+          else
+            git commit -m "Bump ${{ steps.version.outputs.tag }} [skip ci]" -- Makefile
+            git push origin HEAD:master
+          fi
+
+          git tag -a "${{ steps.version.outputs.tag }}" -m "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      # Kept as missyhud.prx so it can be dropped straight into SEPLUGINS.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" missyhud.prx \
+            --title "${{ steps.version.outputs.tag }}" \
+            --generate-notes
+
+      # Written on top of dev rather than merged, so it cannot conflict. A
+      # protected branch or a push that landed meanwhile leaves the release
+      # alone and asks for the bump to be carried over by hand.
+      - name: Carry the version back to dev
+        continue-on-error: true
+        run: |
+          git fetch origin dev
+          git checkout -B sync-dev origin/dev
+          sed -i \
+            -e 's/^MISSYHUD_MAJOR_VERSION := .*/MISSYHUD_MAJOR_VERSION := ${{ steps.version.outputs.major }}/' \
+            -e 's/^MISSYHUD_MINOR_VERSION := .*/MISSYHUD_MINOR_VERSION := ${{ steps.version.outputs.minor }}/' \
+            Makefile
+
+          if git diff --quiet -- Makefile; then
+            echo "dev is already at ${{ steps.version.outputs.tag }}"
+            exit 0
+          fi
+
+          git commit -m "Bump ${{ steps.version.outputs.tag }} [skip ci]" -- Makefile
+          git push origin sync-dev:dev
+
+      - name: Report a dev that was left behind
+        run: |
+          git fetch origin dev || exit 0
+          version=$(git show origin/dev:Makefile |
+            grep -E '^MISSYHUD_(MAJOR|MINOR)_VERSION' |
+            grep -oE '[0-9]+$' | paste -sd.)
+
+          if [ "$version" = "${{ steps.version.outputs.major }}.${{ steps.version.outputs.minor }}" ]; then
+            exit 0
+          fi
+          echo "dev is still on \`v$version\`. Set it to \`${{ steps.version.outputs.tag }}\` and push." \
+            >> "$GITHUB_STEP_SUMMARY"
