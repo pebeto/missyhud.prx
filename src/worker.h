@@ -7,5 +7,6 @@
 #define SLIM_RAM 64
 
 void executeWorkerThread(SceSize args, void *argp);
+void stopWorkerThread(void);
 
 #endif

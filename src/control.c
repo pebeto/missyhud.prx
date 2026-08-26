@@ -1,75 +1,120 @@
 #include <pspctrl.h>
-#include <pspdisplay.h>
 #include <pspthreadman.h>
 
+#include "control.h"
 #include "globals.h"
+#include "utils.h"
 
-int cyclePositionsThread(unsigned int args, void *argp) {
-    sceKernelDelayThread(ONE_SECOND);
+#define CONTROL_STACK_SIZE 0x1000
+#define CONTROL_PRIORITY 0x10
 
-    SceCtrlData pad;
-    sceCtrlSetSamplingCycle(0);
-	sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
+// Also the granularity at which this thread notices module_stop().
+#define CONTROL_POLL_INTERVAL (ONE_SECOND / 10)
 
-    while (globals.active) {
-        sceKernelDelayThread(ONE_SECOND/10);
-        sceCtrlReadBufferPositive(&pad, 1);
+// Polls the toggle combination must be held to fire, i.e. one second.
+#define TOGGLE_HOLD_POLLS 10
 
-        if (pad.Buttons != 0) {
-            if (pad.Buttons & PSP_CTRL_START
-                && pad.Lx > 200) { // Analog stick to the right
-                globals.guiPosition = globals.guiPosition > BOTTOM_RIGHT ?
-                    1 : globals.guiPosition + 1;
-            }
-            if (pad.Buttons & PSP_CTRL_START
-                && pad.Lx < 50) { // Analog stick to the left
-                globals.guiPosition = globals.guiPosition < 1 ?
-                    BOTTOM_RIGHT : globals.guiPosition - 1;
-            }
-        }
-        sceDisplayWaitVblankStart();
+#define ANALOG_RIGHT 200
+#define ANALOG_LEFT 50
+
+static SceUID controlThid = -1;
+
+static int isTogglePressed(const SceCtrlData *pad) {
+    return (pad->Buttons & PSP_CTRL_LTRIGGER) && (pad->Buttons & PSP_CTRL_RTRIGGER) &&
+           (pad->Buttons & PSP_CTRL_START);
+}
+
+// 1 to cycle forwards, -1 to cycle backwards, 0 for no request.
+static int positionRequest(const SceCtrlData *pad) {
+    if (!(pad->Buttons & PSP_CTRL_START)) {
+        return 0;
     }
-    sceKernelExitDeleteThread(0);
+    if (pad->Lx > ANALOG_RIGHT) {
+        return 1;
+    }
+    if (pad->Lx < ANALOG_LEFT) {
+        return -1;
+    }
     return 0;
 }
 
-int hideGuiThread(unsigned int args, void *argp) {
+static void cyclePosition(int direction) {
+    u8 position = globals.guiPosition;
+
+    if (position >= GUI_POSITION_COUNT) {
+        position = TOP_LEFT;
+    }
+
+    globals.guiPosition = direction > 0
+                              ? (u8)((position + 1) % GUI_POSITION_COUNT)
+                              : (u8)((position + GUI_POSITION_COUNT - 1) %
+                                     GUI_POSITION_COUNT);
+}
+
+static int controlThread(unsigned int args, void *argp) {
+    u8 togglePolls = 0;
+    int lastDirection = 0;
+
+    (void)args;
+    (void)argp;
+
     sceKernelDelayThread(ONE_SECOND);
 
-    SceCtrlData pad;
     sceCtrlSetSamplingCycle(0);
-	sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
+    sceCtrlSetSamplingMode(PSP_CTRL_MODE_ANALOG);
 
     while (globals.active) {
-        sceKernelDelayThread(ONE_SECOND);
-        sceCtrlReadBufferPositive(&pad, 1);
+        SceCtrlData pad;
+        int direction;
+        int toggleHeld;
 
-        if (pad.Buttons != 0) {
-            if (pad.Buttons & PSP_CTRL_LTRIGGER
-                && pad.Buttons & PSP_CTRL_RTRIGGER
-                && pad.Buttons & PSP_CTRL_START) {
-                globals.show = !(globals.show);
-            }
+        sceKernelDelayThread(CONTROL_POLL_INTERVAL);
+
+        // Peek rather than Read, so the plugin never blocks on a sample or
+        // takes one from the game that is also reading the pad.
+        if (sceCtrlPeekBufferPositive(&pad, 1) < 1) {
+            continue;
         }
-        sceDisplayWaitVblankStart();
+
+        toggleHeld = isTogglePressed(&pad);
+
+        // The count saturates, so this fires exactly once on the poll where the
+        // hold completes and not again until the combination is released.
+        if (toggleHeld) {
+            if (togglePolls < TOGGLE_HOLD_POLLS) {
+                togglePolls++;
+                if (togglePolls == TOGGLE_HOLD_POLLS) {
+                    globals.show = !globals.show;
+                }
+            }
+        } else {
+            togglePolls = 0;
+        }
+
+        // Edge triggered, so one flick of the stick moves exactly one step
+        // instead of racing through the positions at the poll rate. The toggle
+        // combination also holds START, so it must not cycle as well.
+        direction = toggleHeld ? 0 : positionRequest(&pad);
+        if (direction != 0 && direction != lastDirection) {
+            cyclePosition(direction);
+        }
+        lastDirection = direction;
     }
-    sceKernelExitDeleteThread(0);
+
+    sceKernelExitThread(0);
     return 0;
 }
 
-void executeControlThreads(SceSize args, void *argp) {
-    int hideGui_thid = sceKernelCreateThread("missyhud_hidegui_thread",
-        hideGuiThread, 0x10, 0x200, 0, NULL);
+void executeControlThread(SceSize args, void *argp) {
+    controlThid = sceKernelCreateThread("missyhud_control_thread", controlThread,
+                                        CONTROL_PRIORITY, CONTROL_STACK_SIZE, 0, NULL);
 
-    if (hideGui_thid >= 0) {
-        sceKernelStartThread(hideGui_thid, args, argp);
+    if (controlThid >= 0) {
+        sceKernelStartThread(controlThid, args, argp);
     }
+}
 
-    int cyclePositions_thid = sceKernelCreateThread(
-        "missyhud_cyclepositions_thread", cyclePositionsThread, 0x10, 0x200, 0,
-        NULL);
-
-    if (cyclePositions_thid >= 0) {
-        sceKernelStartThread(cyclePositions_thid, args, argp);
-    }
+void stopControlThread(void) {
+    waitForThread(controlThid);
+    controlThid = -1;
 }

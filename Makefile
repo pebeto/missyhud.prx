@@ -8,12 +8,14 @@ BUILD_PRX = 1
 USE_KERNEL_LIBC = 1
 USE_KERNEL_LIBS = 1
 
-CFLAGS = -O2 -G0 -Wall -DMAJOR_VERSION=$(MISSYHUD_MAJOR_VERSION) -DMINOR_VERSION=$(MISSYHUD_MINOR_VERSION)
+WARNINGS = -Wall -Wextra -Wformat-overflow=2 -Wformat-truncation=2 -Wstrict-prototypes
+
+CFLAGS = -O2 -G0 $(WARNINGS) -DMAJOR_VERSION=$(MISSYHUD_MAJOR_VERSION) -DMINOR_VERSION=$(MISSYHUD_MINOR_VERSION)
 CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS = $(CFLAGS)
 
 INCDIR = include
-LIBS = -lpspuser -lpsppower
+LIBS = -lpspuser -lpsppower -lpspge_driver -lpspsystemctrl_kernel
 
 PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build_prx.mak

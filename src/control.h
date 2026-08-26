@@ -3,6 +3,7 @@
 
 #include <pspkerneltypes.h>
 
-void executeControlThreads(SceSize args, void *argp);
+void executeControlThread(SceSize args, void *argp);
+void stopControlThread(void);
 
 #endif
