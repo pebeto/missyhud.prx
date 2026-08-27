@@ -2,8 +2,6 @@
 #include <string.h>
 
 #include <pspdisplay.h>
-#include <pspdisplay_kernel.h>
-#include <pspge.h>
 #include <pspthreadman.h>
 
 #include "include/blit.h"
@@ -17,6 +15,16 @@ enum GuiLine { CPU_LINE, POWER_LINE, MEMORY_LINE, FPS_LINE, GUI_LINE_COUNT };
 
 // Exactly "100% (999 mins)", the widest battery reading, plus its terminator.
 #define BATTERY_BUFFER 16
+
+// Each syscall taken over, as sctrlHENFindFunction() needs it named. NIDs are
+// the ones pspsdk's user mode stubs carry for these functions.
+#define DISPLAY_MODULE "sceDisplay_Service"
+#define DISPLAY_LIBRARY "sceDisplay"
+#define SET_FRAME_BUF_NID 0x289D82FE
+
+#define GE_MODULE "sceGE_Manager"
+#define GE_LIBRARY "sceGe_user"
+#define LIST_ENQUEUE_NID 0xAB49E76A
 
 #define GUI_STACK_SIZE 0x1000
 #define GUI_PRIORITY 0x10
@@ -38,18 +46,15 @@ static char lineText[GUI_LINE_COUNT][LINE_BUFFER];
 static u8 textVersion = 0;
 static u8 textValid = 0;
 
-// sceDisplaySetFrameBufferInternal rather than sceDisplaySetFrameBuf: the
-// latter is sceDisplay_driver's kernel entry point, and a game runs in user
-// mode, so its flips reach the internal function without ever passing through
-// it. Both the user syscall and the kernel export funnel into this one.
-int (*_sceDisplaySetFrameBufferInternal)(int pri, void *topaddr, int bufferwidth,
-                                         int pixelformat, int sync);
+// sceDisplaySetFrameBuf as user mode reaches it, which is the syscall a game or
+// the XMB makes to put a buffer on screen.
+int (*_sceDisplaySetFrameBuf)(void *topaddr, int bufferwidth, int pixelformat, int sync);
 int (*_sceGeListEnQueue)(const void *list, void *stall, int cbid, void *arg);
 
-// Whether each hijack took. Reported on the FPS line, so a plugin that cannot
-// count frames says so instead of showing a plausible zero.
-static u8 displayHooked = 0;
-static u8 geHooked = 0;
+// How each hijack went. Reported on the FPS line, so a plugin that cannot count
+// frames says why instead of showing a plausible zero.
+static u8 displayHookStatus = HOOK_NOT_FOUND;
+static u8 geHookStatus = HOOK_NOT_FOUND;
 
 // Applied to every value that reaches a format string, so the width of each
 // line is bounded here rather than depending on what the worker thread stored.
@@ -95,8 +100,17 @@ static void formatMemoryUsage(char *msg) {
 }
 
 static void formatFps(char *msg) {
-    if (!displayHooked && !geHooked) {
-        snprintf(msg, LINE_BUFFER, "FPS: n/a");
+    // Indexed by HookStatus. The display hook is where the frame count comes
+    // from, so when it is not in place the line says which step failed.
+    static const char *const hookFailure[] = {"", "find", "slots"};
+
+    if (displayHookStatus != HOOK_OK && geHookStatus != HOOK_OK) {
+        snprintf(msg, LINE_BUFFER, "FPS: n/a (%s)", hookFailure[displayHookStatus]);
+        return;
+    }
+    if (displayHookStatus != HOOK_OK) {
+        snprintf(msg, LINE_BUFFER, "FPS: %u (ge, %s)", clampTo(globals.fps, MAX_FPS),
+                 hookFailure[displayHookStatus]);
         return;
     }
 
@@ -161,8 +175,8 @@ static void drawHud(const BlitTarget *target) {
 
 // Runs in whichever thread the game flips buffers from, so it stays short and
 // touches nothing that could block.
-static int sceDisplaySetFrameBufferInternalHook(int pri, void *topaddr, int bufferwidth,
-                                                int pixelformat, int sync) {
+static int sceDisplaySetFrameBufHook(void *topaddr, int bufferwidth, int pixelformat,
+                                     int sync) {
     globals.frameCounter++;
 
     // The buffer is not on screen yet, so drawing here neither tears against the
@@ -177,8 +191,7 @@ static int sceDisplaySetFrameBufferInternalHook(int pri, void *topaddr, int buff
         drawHud(&target);
     }
 
-    return _sceDisplaySetFrameBufferInternal(pri, topaddr, bufferwidth, pixelformat,
-                                            sync);
+    return _sceDisplaySetFrameBuf(topaddr, bufferwidth, pixelformat, sync);
 }
 
 static int sceGeListEnQueueHook(const void *list, void *stall, int cbid, void *arg) {
@@ -314,12 +327,12 @@ static int guiThread(unsigned int args, void *argp) {
 void executeGuiThread(SceSize args, void *argp) {
     textValid = 0;
 
-    displayHooked = hook_function(sceDisplaySetFrameBufferInternal,
-                                  sceDisplaySetFrameBufferInternalHook,
-                                  (void **)&_sceDisplaySetFrameBufferInternal) == 0;
+    displayHookStatus =
+        (u8)hook_syscall(DISPLAY_MODULE, DISPLAY_LIBRARY, SET_FRAME_BUF_NID,
+                         sceDisplaySetFrameBufHook, (void **)&_sceDisplaySetFrameBuf);
 
-    geHooked = hook_function(sceGeListEnQueue, sceGeListEnQueueHook,
-                             (void **)&_sceGeListEnQueue) == 0;
+    geHookStatus = (u8)hook_syscall(GE_MODULE, GE_LIBRARY, LIST_ENQUEUE_NID,
+                                    sceGeListEnQueueHook, (void **)&_sceGeListEnQueue);
 
     guiThid = sceKernelCreateThread("missyhud_gui_thread", guiThread, GUI_PRIORITY,
                                     GUI_STACK_SIZE, 0, NULL);

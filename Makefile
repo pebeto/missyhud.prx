@@ -15,7 +15,7 @@ CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
 ASFLAGS = $(CFLAGS)
 
 INCDIR = include
-LIBS = -lpspuser -lpsppower -lpspge_driver -lpspsystemctrl_kernel
+LIBS = -lpspuser -lpsppower -lpspsystemctrl_kernel
 
 PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build_prx.mak
