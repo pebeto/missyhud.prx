@@ -7,11 +7,17 @@
 #include "include/blit.h"
 #include "include/hook.h"
 
+#include "config.h"
 #include "globals.h"
 #include "gui.h"
 #include "utils.h"
 
 enum GuiLine { CPU_LINE, POWER_LINE, MEMORY_LINE, FPS_LINE, GUI_LINE_COUNT };
+
+// How many of those four the config left enabled, and which. Rows are packed, so
+// turning one off closes the gap instead of leaving a blank line.
+static u8 visibleLines[GUI_LINE_COUNT];
+static u8 visibleCount = 0;
 
 // Exactly "100% (999 mins)", the widest battery reading, plus its terminator.
 #define BATTERY_BUFFER 16
@@ -155,6 +161,23 @@ static void formatFps(char *msg) {
              globals.useGeFps ? " (ge)" : "");
 }
 
+static void selectLines(void) {
+    visibleCount = 0;
+
+    if (config.showCpu) {
+        visibleLines[visibleCount++] = CPU_LINE;
+    }
+    if (config.showPower) {
+        visibleLines[visibleCount++] = POWER_LINE;
+    }
+    if (config.showRam) {
+        visibleLines[visibleCount++] = MEMORY_LINE;
+    }
+    if (config.showFps) {
+        visibleLines[visibleCount++] = FPS_LINE;
+    }
+}
+
 static void setPositions(void) {
     u8 position = globals.guiPosition;
     u8 column;
@@ -162,6 +185,25 @@ static void setPositions(void) {
     u8 x;
     u8 y;
     int i;
+
+    // A pinned position replaces the nine cycled ones, so the control thread's
+    // cycling has nothing to move.
+    if (config.pinned) {
+        // Held far enough from the edges that the whole block stays on screen.
+        // blit_text() would clip a line that ran off, which reads as the HUD
+        // losing rows rather than as a position that does not fit.
+        u8 maxX = (u8)(BLIT_COLS - HUD_COLS);
+        u8 maxY = (u8)(BLIT_ROWS - visibleCount);
+
+        x = config.posX > maxX ? maxX : config.posX;
+        y = config.posY > maxY ? maxY : config.posY;
+
+        for (i = 0; i < visibleCount; i++) {
+            lineColumn[i] = x;
+            lineRow[i] = (u8)(y + i);
+        }
+        return;
+    }
 
     if (position >= GUI_POSITION_COUNT) {
         position = TOP_LEFT;
@@ -174,9 +216,13 @@ static void setPositions(void) {
     // column can sit flush against the last cell that fits a full line.
     x = column == 0 ? 0
                     : (column == 1 ? (BLIT_COLS - HUD_COLS) / 2 : BLIT_COLS - HUD_COLS);
-    y = row == 0 ? 0 : (row == 1 ? (BLIT_ROWS - HUD_ROWS) / 2 : BLIT_ROWS - HUD_ROWS);
+    // Measured against the lines actually shown, so a shorter HUD still sits
+    // flush against the bottom rather than floating above it.
+    y = row == 0 ? 0
+                 : (row == 1 ? (BLIT_ROWS - visibleCount) / 2
+                             : (u8)(BLIT_ROWS - visibleCount));
 
-    for (i = 0; i < GUI_LINE_COUNT; i++) {
+    for (i = 0; i < visibleCount; i++) {
         lineColumn[i] = x;
         lineRow[i] = (u8)(y + i);
     }
@@ -185,15 +231,31 @@ static void setPositions(void) {
 // Rebuilds the strings only when the worker has published something new, so the
 // per-frame cost in the display hook is the blit alone.
 static void refreshText(void) {
+    int i;
+
     if (textValid && textVersion == globals.dataVersion) {
         return;
     }
 
     textVersion = globals.dataVersion;
-    formatCpuIndicators(lineText[CPU_LINE]);
-    formatPowerIndicators(lineText[POWER_LINE]);
-    formatMemoryUsage(lineText[MEMORY_LINE]);
-    formatFps(lineText[FPS_LINE]);
+
+    for (i = 0; i < visibleCount; i++) {
+        switch (visibleLines[i]) {
+        case CPU_LINE:
+            formatCpuIndicators(lineText[i]);
+            break;
+        case POWER_LINE:
+            formatPowerIndicators(lineText[i]);
+            break;
+        case MEMORY_LINE:
+            formatMemoryUsage(lineText[i]);
+            break;
+        default:
+            formatFps(lineText[i]);
+            break;
+        }
+    }
+
     textValid = 1;
 }
 
@@ -203,8 +265,9 @@ static void drawHud(const BlitTarget *target) {
     setPositions();
     refreshText();
 
-    for (i = 0; i < GUI_LINE_COUNT; i++) {
-        blit_text(target, lineColumn[i], lineRow[i], lineText[i], FG_COLOR, BG_COLOR);
+    for (i = 0; i < visibleCount; i++) {
+        blit_text(target, lineColumn[i], lineRow[i], lineText[i], config.fgColor,
+                  config.bgColor);
     }
 }
 
@@ -253,7 +316,7 @@ static void blankCells(const BlitTarget *target, int col, int row, int len) {
 
     memset(blanks, ' ', (size_t)len);
     blanks[len] = '\0';
-    blit_text(target, col, row, blanks, FG_COLOR, BG_COLOR);
+    blit_text(target, col, row, blanks, config.fgColor, config.bgColor);
 }
 
 // The hook path needs none of this: it draws into a buffer the game has just
@@ -267,9 +330,12 @@ static void drawHudTracked(const BlitTarget *target) {
     refreshText();
 
     // Erase every stale footprint before drawing any line, so a HUD that has
-    // just moved cannot blank a line already redrawn at its new position.
+    // just moved cannot blank a line already redrawn at its new position. All
+    // four slots are swept, not just the visible ones: a config that turns an
+    // indicator off shrinks visibleCount, and the row it used to occupy still
+    // has to be wiped.
     for (i = 0; i < GUI_LINE_COUNT; i++) {
-        u8 len = (u8)strlen(lineText[i]);
+        u8 len = (i < visibleCount) ? (u8)strlen(lineText[i]) : 0;
 
         if (fallbackLen[i] == 0) {
             continue;
@@ -283,8 +349,9 @@ static void drawHudTracked(const BlitTarget *target) {
         }
     }
 
-    for (i = 0; i < GUI_LINE_COUNT; i++) {
-        blit_text(target, lineColumn[i], lineRow[i], lineText[i], FG_COLOR, BG_COLOR);
+    for (i = 0; i < visibleCount; i++) {
+        blit_text(target, lineColumn[i], lineRow[i], lineText[i], config.fgColor,
+                  config.bgColor);
         fallbackColumn[i] = lineColumn[i];
         fallbackRow[i] = lineRow[i];
         fallbackLen[i] = (u8)strlen(lineText[i]);
@@ -332,6 +399,13 @@ static int guiThread(unsigned int args, void *argp) {
     (void)argp;
 
     sceKernelDelayThread(ONE_SECOND);
+
+    // Read here rather than in module_start(), because the memory stick is not
+    // necessarily mounted that early. Until this runs the hook draws with the
+    // defaults already in place.
+    loadConfig();
+    selectLines();
+    textValid = 0;
 
     while (globals.active) {
         BlitTarget target;
@@ -382,6 +456,9 @@ static int guiThread(unsigned int args, void *argp) {
 
 void executeGuiThread(SceSize args, void *argp) {
     textValid = 0;
+
+    configDefaults();
+    selectLines();
 
     displayHookStatus =
         (u8)hook_syscall(DISPLAY_MODULE, DISPLAY_LIBRARY, SET_FRAME_BUF_NID,

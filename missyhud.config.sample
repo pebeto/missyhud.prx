@@ -1,0 +1,22 @@
+# missyhud.config
+#
+# Copy to ms0:/seplugins/missyhud.config, or ef0:/seplugins/ on a PSP Go, and
+# drop the .sample from the name. Every line is optional; anything left out
+# keeps its default. A line that cannot be read is skipped, so a typo costs you
+# that setting and nothing else.
+
+# Colours as 0xRRGGBB.
+FG_COLOR=0xFFFFFF
+BG_COLOR=0x000000
+
+# Which indicators to draw. 0 hides one, and the rows below it close up.
+CPU_INDICATORS=1
+POWER_INDICATORS=1
+RAM_INDICATORS=1
+FPS_INDICATOR=1
+
+# Where to draw it, in character cells: 7 pixels across, 8 down. Setting either
+# one pins the HUD there and turns off cycling with START + Analog. Leave both
+# out to keep the nine cycled positions.
+#POS_X=0
+#POS_Y=0

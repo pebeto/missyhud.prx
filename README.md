@@ -15,8 +15,8 @@ that meets my metric needs. Here it is.
 
 - [x] Stupidly simple black UI (yes, the best one)
     - [x] Cycle position (START + Analog left/right)
-    - [ ] UI customization
-    - [ ] Color customization
+    - [x] UI customization (pinned position, per-indicator toggles)
+    - [x] Color customization
 - [x] Compatible with VSH, GAME and POPS
 - [x] RAM usage indicator
 - [x] Power percentage indicator
@@ -62,6 +62,30 @@ that meets my metric needs. Here it is.
         ef0:/seplugins/missyhud.prx 1
         ```
 4. Restart your device and enjoy your HUD!
+
+## Configuration
+Everything works without a config file. To change something, copy
+[`missyhud.config.sample`](./missyhud.config.sample) to
+`ms0:/seplugins/missyhud.config`, or `ef0:/seplugins/` on a PSP Go, and edit it.
+
+```
+FG_COLOR=0xFFFFFF
+BG_COLOR=0x000000
+CPU_INDICATORS=1
+POWER_INDICATORS=1
+RAM_INDICATORS=1
+FPS_INDICATOR=1
+#POS_X=0
+#POS_Y=0
+```
+
+Colours are `0xRRGGBB`. Setting an indicator to `0` hides it and the rows below
+close up. `POS_X` and `POS_Y` are character cells, 7 pixels across and 8 down;
+setting either pins the HUD there and turns off cycling with `START + Analog`.
+
+Every line is optional, and a line that cannot be read is skipped rather than
+discarding the rest of the file. The config is read about a second after boot,
+because the memory stick is not mounted before that.
 
 ## Usage
 Once the plugin is activated, the HUD will automatically appear in the left corner of the screen. To hide it, hold `L + R + Start` for 1 second. To show it again, repeat the same.
