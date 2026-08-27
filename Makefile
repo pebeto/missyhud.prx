@@ -2,7 +2,7 @@ TARGET = missyhud
 OBJS = src/main.o src/control.o src/worker.o src/gui.o src/utils.o src/config.o include/blit.o include/hook.o
 
 MISSYHUD_MAJOR_VERSION := 0
-MISSYHUD_MINOR_VERSION := 6
+MISSYHUD_MINOR_VERSION := 7
 
 BUILD_PRX = 1
 USE_KERNEL_LIBC = 1
