@@ -28,7 +28,8 @@ that meets my metric needs. Here it is.
     - [x] CPU clock speed
     - [x] BUS clock speed
 - [x] FPS indicator
-    - [ ] Support for double buffering games (i.e. GTA: LCS)
+    - [x] Exact count from buffer flips
+    - [x] Estimate from GE display lists for games that never flip (i.e. GTA: LCS)
     - [ ] Support for POPS (PSX eboots)
 - [x] Key combination to turn on and off (Hold L + R + Start for 1 second)
 
@@ -65,9 +66,15 @@ that meets my metric needs. Here it is.
 ## Usage
 Once the plugin is activated, the HUD will automatically appear in the left corner of the screen. To hide it, hold `L + R + Start` for 1 second. To show it again, repeat the same.
 
+The FPS indicator says where its number came from:
+- `FPS: 60`, counted from buffer flips, which is one call per frame
+- `FPS: 30 (ge)`, estimated from GE display list submissions
+- `FPS: n/a (find)`, the system does not export what the hooks need
+
 ## Known issues and doubts
 - According to the **PSPSDK** documentation, `sceKernelTotalFreeMemSize` returns a different value than `pspSdkTotalFreeUserMemSize`
-- The FPS indicator does not work with double buffering. Follow-up on [this issue](https://github.com/pebeto/missyhud.prx/issues/3) is ongoing.
+- Some games never change the scanout address, so there are no buffer flips to count. GTA: LCS is one of them. The FPS then comes from counting GE display list submissions and marks itself `(ge)`. Most engines submit one list per frame, so the two usually agree, but a game that renders in several passes per frame reads high. Follow-up on [this issue](https://github.com/pebeto/missyhud.prx/issues/3) is ongoing.
+- In those same games the HUD is drawn into the buffer already on screen rather than the one about to be flipped, so it can flicker.
 
 ## Why missy?
 Missy is the name of my cat.
