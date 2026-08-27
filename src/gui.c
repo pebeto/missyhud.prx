@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include <pspdisplay.h>
+#include <pspdisplay_kernel.h>
 #include <pspge.h>
 #include <pspthreadman.h>
 
@@ -37,8 +38,18 @@ static char lineText[GUI_LINE_COUNT][LINE_BUFFER];
 static u8 textVersion = 0;
 static u8 textValid = 0;
 
-int (*_sceDisplaySetFrameBuf)(void *topaddr, int bufferwidth, int pixelformat, int sync);
+// sceDisplaySetFrameBufferInternal rather than sceDisplaySetFrameBuf: the
+// latter is sceDisplay_driver's kernel entry point, and a game runs in user
+// mode, so its flips reach the internal function without ever passing through
+// it. Both the user syscall and the kernel export funnel into this one.
+int (*_sceDisplaySetFrameBufferInternal)(int pri, void *topaddr, int bufferwidth,
+                                         int pixelformat, int sync);
 int (*_sceGeListEnQueue)(const void *list, void *stall, int cbid, void *arg);
+
+// Whether each hijack took. Reported on the FPS line, so a plugin that cannot
+// count frames says so instead of showing a plausible zero.
+static u8 displayHooked = 0;
+static u8 geHooked = 0;
 
 // Applied to every value that reaches a format string, so the width of each
 // line is bounded here rather than depending on what the worker thread stored.
@@ -84,7 +95,15 @@ static void formatMemoryUsage(char *msg) {
 }
 
 static void formatFps(char *msg) {
-    snprintf(msg, LINE_BUFFER, "FPS: %u", clampTo(globals.fps, MAX_FPS));
+    if (!displayHooked && !geHooked) {
+        snprintf(msg, LINE_BUFFER, "FPS: n/a");
+        return;
+    }
+
+    // The GE count is display lists submitted, not buffer flips, so it is
+    // marked as the estimate it is.
+    snprintf(msg, LINE_BUFFER, "FPS: %u%s", clampTo(globals.fps, MAX_FPS),
+             globals.useGeFps ? " (ge)" : "");
 }
 
 static void setPositions(void) {
@@ -142,8 +161,8 @@ static void drawHud(const BlitTarget *target) {
 
 // Runs in whichever thread the game flips buffers from, so it stays short and
 // touches nothing that could block.
-static int sceDisplaySetFrameBufHook(void *topaddr, int bufferwidth, int pixelformat,
-                                     int sync) {
+static int sceDisplaySetFrameBufferInternalHook(int pri, void *topaddr, int bufferwidth,
+                                                int pixelformat, int sync) {
     globals.frameCounter++;
 
     // The buffer is not on screen yet, so drawing here neither tears against the
@@ -158,7 +177,8 @@ static int sceDisplaySetFrameBufHook(void *topaddr, int bufferwidth, int pixelfo
         drawHud(&target);
     }
 
-    return _sceDisplaySetFrameBuf(topaddr, bufferwidth, pixelformat, sync);
+    return _sceDisplaySetFrameBufferInternal(pri, topaddr, bufferwidth, pixelformat,
+                                            sync);
 }
 
 static int sceGeListEnQueueHook(const void *list, void *stall, int cbid, void *arg) {
@@ -294,10 +314,12 @@ static int guiThread(unsigned int args, void *argp) {
 void executeGuiThread(SceSize args, void *argp) {
     textValid = 0;
 
-    hook_function(sceDisplaySetFrameBuf, sceDisplaySetFrameBufHook,
-                  (void **)&_sceDisplaySetFrameBuf);
+    displayHooked = hook_function(sceDisplaySetFrameBufferInternal,
+                                  sceDisplaySetFrameBufferInternalHook,
+                                  (void **)&_sceDisplaySetFrameBufferInternal) == 0;
 
-    hook_function(sceGeListEnQueue, sceGeListEnQueueHook, (void **)&_sceGeListEnQueue);
+    geHooked = hook_function(sceGeListEnQueue, sceGeListEnQueueHook,
+                             (void **)&_sceGeListEnQueue) == 0;
 
     guiThid = sceKernelCreateThread("missyhud_gui_thread", guiThread, GUI_PRIORITY,
                                     GUI_STACK_SIZE, 0, NULL);
