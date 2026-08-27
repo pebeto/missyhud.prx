@@ -74,6 +74,7 @@ static u8 perSecondRate(u32 delta, u32 elapsedTime) {
 static u8 getFPS(u32 currentTime, u32 lastTime) {
     // Method based on the one written by darko79 for PSP-HUD (Thank you).
     u32 frameDelta = globals.frameCounter - frameLastCounter;
+    u32 geDelta = globals.geCounter - geLastCounter;
 
     if (lastTime > 0 && lastTime < currentTime) {
         u32 elapsedTime = currentTime - lastTime;
@@ -95,7 +96,7 @@ static u8 getFPS(u32 currentTime, u32 lastTime) {
             }
 
             if (globals.useGeFps) {
-                lastFps = perSecondRate(globals.geCounter - geLastCounter, elapsedTime);
+                lastFps = perSecondRate(geDelta, elapsedTime);
             } else {
                 // One hooked sceDisplaySetFrameBuf call is one buffer flip, so
                 // this is an exact frame count rather than an estimate.
@@ -103,10 +104,6 @@ static u8 getFPS(u32 currentTime, u32 lastTime) {
             }
         }
     }
-
-    // The hook draws the HUD itself whenever it is being reached; the GUI thread
-    // only falls back to drawing into the displayed buffer when it is not.
-    globals.hookDrawing = frameDelta > 0;
 
     frameLastCounter = globals.frameCounter;
     geLastCounter = globals.geCounter;
@@ -165,7 +162,6 @@ static void resetMetrics(void) {
     globals.frameCounter = 0;
     globals.geCounter = 0;
     globals.useGeFps = 0;
-    globals.hookDrawing = 0;
     globals.dataVersion = 0;
 }
 

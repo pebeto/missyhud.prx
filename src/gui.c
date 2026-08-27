@@ -36,6 +36,11 @@ enum GuiLine { CPU_LINE, POWER_LINE, MEMORY_LINE, FPS_LINE, GUI_LINE_COUNT };
 // Poll interval for the GUI thread while the display hook is doing the drawing.
 #define HOOK_IDLE_POLL (ONE_SECOND / 10)
 
+// Polls without a new frame before the display hook counts as gone. The thread
+// wakes about once per vblank, so this tolerates a game flipping as slowly as
+// 8fps while still noticing a real stop inside about an eighth of a second.
+#define HOOK_IDLE_POLLS 8
+
 static SceUID guiThid = -1;
 
 // Cell each line is drawn at, and the text itself. Rebuilt only when the worker
@@ -55,6 +60,36 @@ int (*_sceGeListEnQueue)(const void *list, void *stall, int cbid, void *arg);
 // frames says why instead of showing a plausible zero.
 static u8 displayHookStatus = HOOK_NOT_FOUND;
 static u8 geHookStatus = HOOK_NOT_FOUND;
+
+// The glyphs are written by the CPU straight into the framebuffer, so they have
+// to reach memory before the buffer is scanned out instead of sitting in the
+// data cache waiting to be evicted. Writing them cached is why the HUD faded in
+// and out under load.
+//
+// Which bit reaches the uncached mirror depends on the segment, and an address
+// outside the two that are known is returned untouched rather than turned into
+// something that is not mapped. A null address stays null: it has to keep
+// failing blit_target_valid() instead of becoming a plausible pointer.
+static void *uncached(void *address) {
+    u32 addr = (u32)address;
+
+    if (addr == 0) {
+        return NULL;
+    }
+
+    switch (addr >> 28) {
+    case 0x0:
+    case 0x1:
+        // User and physical window, cached. Its mirror is at +0x40000000.
+        return (void *)(addr | 0x40000000);
+    case 0x8:
+    case 0x9:
+        // Kernel window, cached. Its mirror is at +0x20000000.
+        return (void *)(addr | 0x20000000);
+    default:
+        return address;
+    }
+}
 
 // Applied to every value that reaches a format string, so the width of each
 // line is bounded here rather than depending on what the worker thread stored.
@@ -185,7 +220,7 @@ static int sceDisplaySetFrameBufHook(void *topaddr, int bufferwidth, int pixelfo
     if (globals.show && topaddr != NULL) {
         BlitTarget target;
 
-        target.base = topaddr;
+        target.base = uncached(topaddr);
         target.stride = bufferwidth;
         target.format = pixelformat;
         drawHud(&target);
@@ -276,10 +311,23 @@ static int currentDisplayTarget(BlitTarget *target) {
         return 0;
     }
 
-    return blit_target_valid(target);
+    if (!blit_target_valid(target)) {
+        return 0;
+    }
+
+    target->base = uncached(target->base);
+
+    return 1;
 }
 
 static int guiThread(unsigned int args, void *argp) {
+    // Sampled here rather than taken from the worker thread. The worker only
+    // looks once a second, which left this thread drawing into the visible
+    // buffer for up to a second after a game started flipping again, and that
+    // is what made the HUD drop in and out across a loading screen.
+    u32 seenFrames = globals.frameCounter;
+    u8 idlePolls = 0;
+
     (void)args;
     (void)argp;
 
@@ -287,10 +335,18 @@ static int guiThread(unsigned int args, void *argp) {
 
     while (globals.active) {
         BlitTarget target;
+        u32 frames = globals.frameCounter;
+
+        if (frames != seenFrames) {
+            seenFrames = frames;
+            idlePolls = 0;
+        } else if (idlePolls < HOOK_IDLE_POLLS) {
+            idlePolls++;
+        }
 
         // While the hook is drawing there is nothing to do here, so poll slowly
         // rather than waking for every vblank.
-        if (globals.hookDrawing) {
+        if (idlePolls < HOOK_IDLE_POLLS) {
             sceKernelDelayThreadCB(HOOK_IDLE_POLL);
             continue;
         }

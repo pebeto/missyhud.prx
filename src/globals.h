@@ -39,9 +39,6 @@ struct Globals {
     // an exact frame count rather than an estimate.
     volatile u32 frameCounter;
     volatile u32 geCounter;
-    // Set by the worker thread when frameCounter is advancing, meaning the
-    // display hook is live and drawing the HUD itself.
-    volatile u8 hookDrawing;
     // Bumped by the worker thread whenever it publishes new readings, so the
     // drawing side knows when to rebuild its strings.
     volatile u8 dataVersion;

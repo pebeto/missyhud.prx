@@ -54,6 +54,9 @@ static void cyclePosition(int direction) {
 static int controlThread(unsigned int args, void *argp) {
     u8 togglePolls = 0;
     int lastDirection = 0;
+    // A combination that already reads as held when the thread starts must not
+    // fire, so the toggle arms only once it has been seen released.
+    int toggleArmed = 0;
 
     (void)args;
     (void)argp;
@@ -80,14 +83,15 @@ static int controlThread(unsigned int args, void *argp) {
 
         // The count saturates, so this fires exactly once on the poll where the
         // hold completes and not again until the combination is released.
-        if (toggleHeld) {
+        if (toggleHeld && toggleArmed) {
             if (togglePolls < TOGGLE_HOLD_POLLS) {
                 togglePolls++;
                 if (togglePolls == TOGGLE_HOLD_POLLS) {
                     globals.show = !globals.show;
                 }
             }
-        } else {
+        } else if (!toggleHeld) {
+            toggleArmed = 1;
             togglePolls = 0;
         }
 
